@@ -19,10 +19,12 @@ public interface UserRepository {
 
     User findByKakaoId(Long kakaoId);
 
+    User findByGoogleId(Long googleId);
+
     User findByEmail(String kakaoEmail);
 
     @Query("select u from User u where u.email = :googleEmail")
-    Optional<User> findByGoogleEmail(String googleEmail);
+    User findByGoogleEmail(String googleEmail);
 
     @Query("select u from User u where u.email = :email")
     Optional<User> findByUserEmail(String email);

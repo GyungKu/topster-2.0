@@ -88,6 +88,7 @@ public class MailServiceImpl implements MailService {
     @Override
     public String sendSimpleMessage(String email) throws Exception {
         String verificationCountKey = "verificationCount:" + email;
+        //일 10회
         Long count = redisUtil.increment(verificationCountKey,1);
         if(count > MAX_VERIFICATIONS_PER_DAY){
             throw new RuntimeException("일 인증 횟수 초과");
@@ -105,18 +106,19 @@ public class MailServiceImpl implements MailService {
         System.out.println("********생성된 메시지******** => " + message);
 
 
-        try { // 예외처리
+        try {
             emailSender.send(message);
         } catch (Exception e) {
             e.printStackTrace();
             throw new IllegalArgumentException();
         }
 
-        return ePw; // 메일로 사용자에게 보낸 인증코드를 서버로 반환! 인증코드 일치여부를 확인하기 위함
+        return ePw;
     }
 
     private long getSecondsUntilMidnight() {
         LocalDateTime now = LocalDateTime.now();
+        //00:00시
         LocalDateTime midnight = now.toLocalDate().plusDays(1).atStartOfDay();
         return ChronoUnit.SECONDS.between(now, midnight);
     }

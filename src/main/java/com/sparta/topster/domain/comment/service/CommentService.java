@@ -9,6 +9,7 @@ import com.sparta.topster.domain.comment.repository.CommentRespository;
 import com.sparta.topster.domain.post.entity.Post;
 import com.sparta.topster.domain.post.exception.PostException;
 import com.sparta.topster.domain.post.service.PostService;
+import com.sparta.topster.domain.sse.NotificationService;
 import com.sparta.topster.domain.user.entity.User;
 import com.sparta.topster.global.exception.ServiceException;
 import com.sparta.topster.global.response.RootNoDataRes;
@@ -27,6 +28,7 @@ public class CommentService {
 
   private final CommentRespository commentRespository;
   private final PostService postService;
+  private final NotificationService notificationService;
 
   public CommentRes createComment(Long postId, CommentCreateReq commentCreateReq, User user) {
     log.info("댓글 작성");
@@ -39,6 +41,8 @@ public class CommentService {
         .build();
 
     commentRespository.save(comment);
+    Long postUserId = post.getUser().getId();
+    notificationService.notifyComment(postUserId);
 
     log.info("댓글 작성 완료");
     return CommentRes.builder()

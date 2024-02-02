@@ -51,4 +51,14 @@ public class RedisUtil {
     public void setExpire(String key, long timeout) {
         redisTemplate.expire(key, timeout, java.util.concurrent.TimeUnit.SECONDS);
     }
+
+    public void deleteData(String key){
+        try {
+            ValueOperations<String, String> valueOperations = stringRedisTemplate.opsForValue();
+            valueOperations.getAndDelete(key);
+        }catch (Exception e){
+            log.error("deleteData Error");
+            e.getMessage();
+        }
+    }
 }

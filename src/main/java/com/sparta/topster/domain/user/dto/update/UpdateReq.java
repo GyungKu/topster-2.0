@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 public class UpdateReq {
 
     private String nickname;
-    private String password;
     private String intro;
 
 }

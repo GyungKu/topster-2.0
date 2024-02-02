@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doNothing;
 
 import com.sparta.topster.domain.comment.dto.req.CommentCreateReq;
 import com.sparta.topster.domain.comment.dto.req.CommentModifyReq;
@@ -15,6 +16,7 @@ import com.sparta.topster.domain.comment.exception.CommentException;
 import com.sparta.topster.domain.comment.repository.CommentRespository;
 import com.sparta.topster.domain.post.entity.Post;
 import com.sparta.topster.domain.post.service.PostService;
+import com.sparta.topster.domain.sse.NotificationService;
 import com.sparta.topster.domain.user.entity.User;
 import com.sparta.topster.global.exception.ServiceException;
 import com.sparta.topster.global.response.RootNoDataRes;
@@ -22,7 +24,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,6 +37,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class) // Mockito의 목 객체 자동으로 초기화
 class CommentServiceTest {
+
 
   @InjectMocks
   private CommentService commentService;
@@ -227,4 +229,19 @@ class CommentServiceTest {
     assertThatThrownBy(() -> commentService.deleteComment(9999L, otherUser)).isInstanceOf(
         ServiceException.class).hasMessage("작성자만 수정 및 삭제 할 수 있습니다.");
   }
+
+        Comment comment = Comment.builder()
+            .content("댓글")
+            .post(post)
+            .user(user)
+            .build();
+        ReflectionTestUtils.setField(comment, "id", 1L);
+
+        given(commentRepository.findById(any())).willReturn(Optional.of(comment));
+
+        RootNoDataRes res = commentService.modifyComment(comment.getId(), req, user);
+
+        assertThat(res.code()).isEqualTo("200");
+        assertThat(res.message()).isEqualTo(comment.getId() + "번 댓글을 수정하였습니다.");
+    }
 }

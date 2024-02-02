@@ -3,17 +3,17 @@ package com.sparta.topster.domain.user.service.user;
 import static com.sparta.topster.domain.user.excepetion.UserException.DUPLICATE_EMAIL;
 import static com.sparta.topster.domain.user.excepetion.UserException.DUPLICATE_NICKNAME;
 import static com.sparta.topster.domain.user.excepetion.UserException.DUPLICATE_USERNAME;
-import static com.sparta.topster.domain.user.excepetion.UserException.INVALID_NICKNAME;
+import static com.sparta.topster.domain.user.excepetion.UserException.NOT_EXIST_USER;
 import static com.sparta.topster.domain.user.excepetion.UserException.NOT_FOUND_AUTHENTICATION_CODE;
 import static com.sparta.topster.domain.user.excepetion.UserException.NOT_FOUND_PASSWORD;
 import static com.sparta.topster.domain.user.excepetion.UserException.NOT_FOUND_USERID;
 import static com.sparta.topster.domain.user.excepetion.UserException.TOKEN_ERROR;
-import static com.sparta.topster.domain.user.excepetion.UserException.WRONG_ADMIN_CODE;
 
 import com.sparta.topster.domain.user.dto.deleteDto.DeleteReq;
 import com.sparta.topster.domain.user.dto.getUser.GetUserRes;
 import com.sparta.topster.domain.user.dto.login.LoginReq;
 import com.sparta.topster.domain.user.dto.login.LoginRes;
+import com.sparta.topster.domain.user.dto.modifyPassword.ModifyReq;
 import com.sparta.topster.domain.user.dto.signup.SignupReq;
 import com.sparta.topster.domain.user.dto.signup.SignupRes;
 import com.sparta.topster.domain.user.dto.update.UpdateReq;
@@ -43,7 +43,7 @@ public class UserServiceImpl implements UserService {
     private final JwtUtil jwtUtil;
     private final RedisUtil redisUtil;
 
-    private final String ADMIN_TOKEN = "AAlrnYxKZ0aHgTBcXukeZygoC";
+//    private final String ADMIN_TOKEN = "AAlrnYxKZ0aHgTBcXukeZygoC";
 
     @Override
     public SignupRes signUp(SignupReq signupReq) {
@@ -52,25 +52,22 @@ public class UserServiceImpl implements UserService {
         String password = passwordEncoder.encode(signupReq.getPassword());
         String signupCode = redisUtil.getData(signupReq.getEmail());
 
-        checkPassword(signupCode == null || !signupCode.equals(signupReq.getCertification()),
-            NOT_FOUND_AUTHENTICATION_CODE);
+        checkMailCode(signupCode, signupReq.getCertification());
 
         Optional<User> byUsername = userRepository.findByUsername(username);
         Optional<User> byNickname = userRepository.findBynickname(nickname);
         Optional<User> byEmail = userRepository.findByUserEmail(signupReq.getEmail());
 
-        checkPassword(byUsername.isPresent(), DUPLICATE_USERNAME);
-
-        checkPassword(byNickname.isPresent(), DUPLICATE_NICKNAME);
-
-        checkPassword(byEmail.isPresent(), DUPLICATE_EMAIL);
+        checkDuplicate(byUsername.isPresent(), DUPLICATE_USERNAME);
+        checkDuplicate(byNickname.isPresent(), DUPLICATE_NICKNAME);
+        checkDuplicate(byEmail.isPresent(), DUPLICATE_EMAIL);
 
         UserRoleEnum role = UserRoleEnum.USER;
 
-        if (signupReq.isAdmin()) {
-            checkPassword(!ADMIN_TOKEN.equals(signupReq.getAdminToken()), WRONG_ADMIN_CODE);
-            role = UserRoleEnum.ADMIN;
-        }
+//        if (signupReq.isAdmin()) {
+//            checkPassword(!ADMIN_TOKEN.equals(signupReq.getAdminToken()), WRONG_ADMIN_CODE);
+//            role = UserRoleEnum.ADMIN;
+//        }
 
         User user = User.builder()
             .username(username)
@@ -82,6 +79,7 @@ public class UserServiceImpl implements UserService {
             .build();
 
         User saveUser = userRepository.save(user);
+        redisUtil.deleteData(user.getEmail());
 
         return SignupRes.builder()
             .username(saveUser.getUsername())
@@ -93,20 +91,18 @@ public class UserServiceImpl implements UserService {
     @Override
     public LoginRes loginUser(LoginReq loginReq, HttpServletResponse response) {
         String username = loginReq.getUsername();
-        Optional<User> byUsername = userRepository.findByUsername(username);
+        User byUsername = getByUsername(username);
 
-        checkPassword(
-            !passwordEncoder.matches(loginReq.getPassword(), byUsername.get().getPassword()),
-            NOT_FOUND_PASSWORD);
+        checkPassword(loginReq.getPassword(), byUsername.getPassword());
 
-        UserRoleEnum role = byUsername.get().getRole();
+        UserRoleEnum role = byUsername.getRole();
 
         response.setHeader(JwtUtil.AUTHORIZATION_HEADER,
-            jwtUtil.createToken(byUsername.get().getUsername(), role));
+            jwtUtil.createToken(byUsername.getUsername(), role));
         response.setHeader(JwtUtil.REFRESH_TOKEN_PREFIX,
-            jwtUtil.createRefreshToken(byUsername.get().getUsername()));
+            jwtUtil.createRefreshToken(byUsername.getUsername()));
 
-        return LoginRes.builder().username(byUsername.get().getUsername()).build();
+        return LoginRes.builder().username(byUsername.getUsername()).build();
     }
 
     @Override
@@ -114,22 +110,9 @@ public class UserServiceImpl implements UserService {
     public UpdateRes updateUser(User user, UpdateReq updateReq) {
         User findByUser = getUser(user.getId());
 
-        checkPassword(updateReq, findByUser);
-
-        checkPassword(updateReq);
-
-        checkIntro(findByUser.getNickname().equals(updateReq.getNickname()), DUPLICATE_NICKNAME);
-
-        if (checkIntro(updateReq, findByUser)) {
-            return UpdateRes.builder()
-                .intro(updateReq.getIntro())
-                .build();
-        }
-
-        if (checkNickname(updateReq, findByUser)) {
-            return UpdateRes.builder()
-                .nickname(updateReq.getNickname())
-                .build();
+        if (!updateReq.getNickname().equals(findByUser.getNickname())) {
+            Optional<User> byNickName = userRepository.findBynickname(updateReq.getNickname());
+            checkDuplicate(byNickName.isPresent(), DUPLICATE_NICKNAME);
         }
 
         findByUser.updateIntro(updateReq);
@@ -140,7 +123,8 @@ public class UserServiceImpl implements UserService {
             .build();
     }
 
-    public GetUserRes getUser(User user) {
+    @Override
+    public GetUserRes userConvertDto(User user) {
         getUser(user.getId());
 
         return GetUserRes.builder()
@@ -156,11 +140,8 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(User user, DeleteReq deleteReq) {
         String password = deleteReq.getPassword();
         User getUser = getUser(user.getId());
-        if (passwordEncoder.matches(password, getUser.getPassword())) {
-            userRepository.deleteById(getUser.getId());
-        } else {
-            throw new ServiceException(NOT_FOUND_PASSWORD);
-        }
+        checkPassword(password, getUser.getPassword());
+        userRepository.deleteById(getUser.getId());
     }
 
     @Override
@@ -168,58 +149,52 @@ public class UserServiceImpl implements UserService {
     public String refreshToken(String refreshToken) {
         String username = redisUtil.getData(refreshToken);
 
-        if (refreshToken != null) {
-            Optional<User> byUsername = userRepository.findByUsername(username);
-            return jwtUtil.createToken(username, byUsername.get().getRole());
-        } else {
+        if (refreshToken == null) {
             throw new ServiceException(TOKEN_ERROR);
         }
+        User byUsername = getByUsername(username);
+        return jwtUtil.createToken(username, byUsername.getRole());
+    }
+
+    @Override
+    @Transactional
+    public void modifyPassword(User user, ModifyReq modifyReq){
+        User findByUser = getUser(user.getId());
+        String certification = redisUtil.getData(user.getEmail());
+        checkMailCode(modifyReq.getCertification(),certification);
+        findByUser.modifyPassword(passwordEncoder.encode(modifyReq.getModifyPassword()));
+        redisUtil.deleteData(user.getEmail());
+    }
+
+    private User getByUsername(String username) {
+        return userRepository.findByUsername(username).orElseThrow(
+            () -> new ServiceException(NOT_EXIST_USER)
+        );
     }
 
     public User getUser(Long userId) {
         User byId = userRepository.findById(userId);
-        if(byId == null){
+        if (byId == null) {
             throw new ServiceException(NOT_FOUND_USERID);
         }
         return byId;
     }
 
-    private void checkPassword(boolean passwordEncoder, UserException notFoundPassword) {
-        if (passwordEncoder) {
-            log.error(notFoundPassword.getMessage());
-            throw new ServiceException(notFoundPassword);
+    private void checkMailCode(String signupCode, String inputCode) {
+        if (!inputCode.equals(signupCode)) {
+            throw new ServiceException(NOT_FOUND_AUTHENTICATION_CODE);
         }
     }
 
-    private static boolean checkNickname(UpdateReq updateReq, User findByUser) {
-        if (updateReq.getNickname() != null && updateReq.getIntro() == null) {
-            findByUser.updateNickname(updateReq.getNickname());
-            return true;
-        }
-        return false;
-    }
-
-    private static boolean checkIntro(UpdateReq updateReq, User findByUser) {
-        if (updateReq.getIntro() != null && updateReq.getNickname() == null) {
-            findByUser.updateIntro(updateReq.getIntro());
-            return true;
-        }
-        return false;
-    }
-
-    private static void checkIntro(boolean findByUser, UserException duplicateNickname) {
-        if (findByUser) {
-            throw new ServiceException(duplicateNickname);
+    private void checkDuplicate(boolean present, UserException userException) {
+        if (present) {
+            throw new ServiceException(userException);
         }
     }
 
-    private static void checkPassword(UpdateReq updateReq) {
-        checkIntro(updateReq.getNickname() != null && updateReq.getNickname().trim().isEmpty(),
-            INVALID_NICKNAME);
-    }
-
-    private void checkPassword(UpdateReq updateReq, User findByUser) {
-        checkIntro(!passwordEncoder.matches(updateReq.getPassword(), findByUser.getPassword()),
-            NOT_FOUND_PASSWORD);
+    private void checkPassword(String rowPassword, String encodePassword) {
+        if (!passwordEncoder.matches(rowPassword, encodePassword)) {
+            throw new ServiceException(NOT_FOUND_PASSWORD);
+        }
     }
 }

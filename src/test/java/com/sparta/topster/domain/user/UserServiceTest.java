@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.sparta.topster.domain.user.dto.deleteDto.DeleteReq;
 import com.sparta.topster.domain.user.dto.login.LoginReq;
+import com.sparta.topster.domain.user.dto.modifyPassword.ModifyReq;
 import com.sparta.topster.domain.user.dto.signup.SignupReq;
 import com.sparta.topster.domain.user.dto.update.UpdateReq;
 import com.sparta.topster.domain.user.entity.User;
@@ -19,17 +20,18 @@ import com.sparta.topster.global.exception.ServiceException;
 import com.sparta.topster.global.util.JwtUtil;
 import com.sparta.topster.global.util.RedisUtil;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 public class UserServiceTest {
 
@@ -133,11 +135,10 @@ public class UserServiceTest {
 
     @DisplayName("수정")
     @Order(3)
-    @ParameterizedTest
-    @ValueSource(strings = {"password", "password1"})
-    void updateTest(String password) {
+    @Test
+    void updateTest() {
         //given
-        UpdateReq updateReq = new UpdateReq("newNickname", "password", "newIntro");
+        UpdateReq updateReq = new UpdateReq("newNickname", "newIntro");
 
         User user = User.builder()
             .username("username")
@@ -148,18 +149,11 @@ public class UserServiceTest {
 
         //when
         when(userRepository.findById(user.getId())).thenReturn(user);
-        when(passwordEncoder.matches(eq(password), anyString())).thenReturn(true);
 
-        //then
-        if (user.getPassword().equals(password)) {
-            assertThatCode(() -> userService.updateUser(user, updateReq))
-                .doesNotThrowAnyException();
-            System.out.println(user.getNickname());
-        } else {
-            assertThatCode(() -> userService.updateUser(user, updateReq))
-                .isInstanceOf(ServiceException.class)
-                .hasMessage("비밀번호가 일치하지 않습니다.");
-        }
+        //then;
+        assertThatCode(() -> userService.updateUser(user, updateReq))
+            .doesNotThrowAnyException();
+        System.out.println(user.getNickname());
     }
 
     @ParameterizedTest
@@ -187,7 +181,7 @@ public class UserServiceTest {
                 .doesNotThrowAnyException();
         } else {
             assertThatCode(() -> userService.refreshToken(testRefreshToken))
-                .isInstanceOf(NoSuchElementException.class);
+                .hasMessage("유저가 존재하지 않습니다.");
         }
     }
 
@@ -208,15 +202,42 @@ public class UserServiceTest {
 
         //when
         when(userRepository.findById(user.getId())).thenReturn(user);
-        when(passwordEncoder.matches(eq(password), eq(user.getPassword()))).thenReturn(!password.equals("password2"));
+        when(passwordEncoder.matches(eq(password), eq(user.getPassword()))).thenReturn(
+            !password.equals("password2"));
 
         //then
         if (password.equals(user.getPassword())) {
             assertDoesNotThrow(() -> userService.deleteUser(user, deleteReq));
         } else {
             assertThatCode(() -> userService.deleteUser(user, deleteReq))
-                .isInstanceOf(ServiceException.class)
                 .hasMessage("비밀번호가 일치하지 않습니다.");
+        }
+    }
+
+    @ValueSource(strings = {"123","123123"})
+    @ParameterizedTest
+    @Order(6)
+    @DisplayName("비밀번호 변경")
+    void modifyPassword(String certificationCode) {
+        String email = "wogns8030@naver.com";
+        String password = "123";
+        String modifyPassword = "topster";
+        ModifyReq modifyReq = new ModifyReq(certificationCode, modifyPassword);
+        User user = User.builder()
+            .email(email)
+            .password(passwordEncoder.encode(password))
+            .build();
+
+        ReflectionTestUtils.setField(user,"id",1L);
+        when(redisUtil.getData(email)).thenReturn("123");
+        when(userRepository.findById(user.getId())).thenReturn(user);
+
+        if(certificationCode.equals("123")){
+            assertThatCode(() -> userService.modifyPassword(user,modifyReq)).doesNotThrowAnyException();
+        }else{
+            assertThatCode(() -> userService.modifyPassword(user,modifyReq))
+                .isInstanceOf(ServiceException.class)
+                .hasMessage("인증번호 오류");
         }
     }
 }

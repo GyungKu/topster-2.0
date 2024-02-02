@@ -4,6 +4,7 @@ import com.sparta.topster.domain.user.dto.deleteDto.DeleteReq;
 import com.sparta.topster.domain.user.dto.getUser.GetUserRes;
 import com.sparta.topster.domain.user.dto.login.LoginReq;
 import com.sparta.topster.domain.user.dto.login.LoginRes;
+import com.sparta.topster.domain.user.dto.modifyPassword.ModifyReq;
 import com.sparta.topster.domain.user.dto.signup.SignupReq;
 import com.sparta.topster.domain.user.dto.signup.SignupRes;
 import com.sparta.topster.domain.user.dto.update.UpdateReq;
@@ -19,10 +20,11 @@ public interface UserService {
 
     UpdateRes updateUser(User user, UpdateReq updateReq);
 
-    GetUserRes getUser(User user);
+    GetUserRes userConvertDto(User user);
 
     void deleteUser(User user, DeleteReq deleteReq);
 
     String refreshToken(String refreshToken);
 
+    void modifyPassword(User user, ModifyReq modifyReq) throws Exception;
 }

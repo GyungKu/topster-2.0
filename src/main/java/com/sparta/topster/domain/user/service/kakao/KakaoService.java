@@ -2,7 +2,6 @@ package com.sparta.topster.domain.user.service.kakao;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sparta.topster.domain.user.dto.kakao.KakaoUserInfoDto;
 import com.sparta.topster.domain.user.entity.User;
 import com.sparta.topster.domain.user.entity.UserRoleEnum;
@@ -14,13 +13,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
@@ -30,7 +30,7 @@ public class KakaoService {
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
-    private final RestTemplate restTemplate; //따로 Bean수동등록을 해줘야함
+    private final RestClient restClient;
     private final JwtUtil jwtUtil;
     @Value("${kakao.client-id}")
     private String clientId;
@@ -81,7 +81,7 @@ public class KakaoService {
         body.add("client_id", clientId);
         body.add("redirect_uri", redirectUrl);
         body.add("code", code);
-        body.add("client_secret",secret);
+        body.add("client_secret", secret);
 
         RequestEntity<MultiValueMap<String, String>> requestEntity = RequestEntity
             .post(uri)
@@ -89,13 +89,16 @@ public class KakaoService {
             .body(body);
 
         // HTTP 요청 보내기
-        ResponseEntity<String> response = restTemplate.exchange(
-            requestEntity,
-            String.class
-        );
+        ResponseEntity<JsonNode> response =
+            restClient.post()
+                .uri(uri)
+                .body(body)
+                .header("Content-type", MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                .retrieve()
+                .toEntity(JsonNode.class);
 
         // HTTP 응답 (JSON) -> 액세스 토큰 파싱
-        JsonNode jsonNode = new ObjectMapper().readTree(response.getBody());
+        JsonNode jsonNode = response.getBody();
         return jsonNode.get("access_token").asText();
     }
 
@@ -120,12 +123,13 @@ public class KakaoService {
             .body(new LinkedMultiValueMap<>()); //body에 따로 보내줄 필요가 없음
 
         // HTTP 요청 보내기
-        ResponseEntity<String> response = restTemplate.exchange(
-            requestEntity,
-            String.class
-        );
+        ResponseEntity<JsonNode> response = restClient.get()
+            .uri(uri)
+            .header("Authorization", "Bearer " + accessToken)
+            .retrieve()
+            .toEntity(JsonNode.class);
 
-        JsonNode jsonNode = new ObjectMapper().readTree(response.getBody());
+        JsonNode jsonNode = response.getBody();
         Long id = jsonNode.get("id").asLong(); //Long타입으로 해당하는 id값 받아옴
         String nickname = jsonNode.get("properties")
             .get("nickname").asText();//닉네임 값 가져옴
@@ -155,14 +159,20 @@ public class KakaoService {
                 // password: random UUID
                 String password = UUID.randomUUID().toString();
                 String encodedPassword = passwordEncoder.encode(password);
-                String nickname = UUID.randomUUID().toString().substring(0,7);
+                String nickname = kakaoUserInfo.getNickname();
 
                 // email: kakao email
                 String email = kakaoUserInfo.getEmail();
 
-                kakaoUser = new User(kakaoUserInfo.getNickname(), nickname, encodedPassword, email, UserRoleEnum.USER, kakaoId);
+                kakaoUser = User.builder()
+                    .username(nickname)
+                    .nickname(nickname)
+                    .password(encodedPassword)
+                    .email(email)
+                    .role(UserRoleEnum.USER)
+                    .kakaoId(kakaoId)
+                    .build();
             }
-
             userRepository.save(kakaoUser);
         }
         return kakaoUser;

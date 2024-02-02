@@ -3,10 +3,10 @@ package com.sparta.topster.domain.like.service;
 import com.sparta.topster.domain.like.dto.LikeCountStatusRes;
 import com.sparta.topster.domain.like.entity.Like;
 import com.sparta.topster.domain.like.repository.LikeRepository;
+import com.sparta.topster.domain.sse.NotificationService;
 import com.sparta.topster.domain.topster.entity.Topster;
 import com.sparta.topster.domain.topster.service.TopsterService;
 import com.sparta.topster.domain.user.entity.User;
-import com.sparta.topster.global.security.UserDetailsImpl;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class LikeService {
 
     private final LikeRepository likeRepository;
-
     private final TopsterService topsterService;
+    private final NotificationService notificationService;
 
   @Transactional
   public boolean toggleLike(Long topsterId, User user) {
@@ -49,6 +49,7 @@ public class LikeService {
 
     // 사용자가 아직 좋아요를 누르지 않았다면 좋아요 정보 추가
     likeRepository.save(like);
+    notificationService.notifyLikeAdded(topster.getUser().getId());
 
     return true;
   }
