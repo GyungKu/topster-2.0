@@ -40,18 +40,11 @@ public class TopsterServiceTest {
     User userA;
     User userB;
 
-
     Album albumA;
     Album albumB;
 
-
     @Mock
     TopsterRepository topsterRepository;
-    @Mock
-    TopsterAlbumRepository topsterAlbumRepository;
-    @Mock
-    AlbumService albumService;
-
 
     @BeforeEach
     void init(){
@@ -94,47 +87,13 @@ public class TopsterServiceTest {
     @Test
     @DisplayName("Topster를_등록할_수_있다")
     void testCreate(){
-
         //given
-        AlbumInsertReq albumReqA = AlbumInsertReq.builder().
-                title("albumA 제목").
-                image("albumA 이미지").
-                artist("albumA 가수").
-                releaseDate("albumA 발매일").
-                build();
-
-        AlbumInsertReq albumReqB = AlbumInsertReq.builder().
-                title("albumB 제목").
-                image("albumB 이미지").
-                artist("albumB 가수").
-                releaseDate("albumB 발매일").
-                build();
-
-        AlbumInsertReq albumReqC = AlbumInsertReq.builder().
-                title("albumC 제목").
-                image("albumC 이미지").
-                artist("albumC 가수").
-                releaseDate("albumC 발매일").
-                build();
-
-        albumA = Album.builder().title(albumReqA.getTitle()).image(albumReqA.getImage()).
-                release(albumReqA.getReleaseDate()).artist(albumReqA.getArtist()).build();
-
-        albumB = Album.builder().title(albumReqB.getTitle()).image(albumReqB.getImage()).
-                release(albumReqB.getReleaseDate()).artist(albumReqB.getArtist()).build();
-
-        List<AlbumInsertReq> albumInsertReqList = new ArrayList<>();
-        albumInsertReqList.add(albumReqA);
-        albumInsertReqList.add(albumReqB);
-        albumInsertReqList.add(albumReqC);
-
         TopsterCreateReq topsterCreateReq = TopsterCreateReq.builder().
-                title("탑스터 제목").
-                albums(albumInsertReqList).build();
+                title("탑스터 제목")
+                .build();
 
         Topster topster = Topster.builder().title("탑스터 제목").
                 user(userA).
-                content("없어").
                 build();
 
         given(topsterRepository.save(any())).willReturn(topster);
@@ -146,7 +105,6 @@ public class TopsterServiceTest {
         assertThat(savedTopster.getTitle()).isEqualTo(topster.getTitle());
         assertThat(savedTopster.getUser().getId()).
                 isEqualTo(1L);
-
     }
 
 
