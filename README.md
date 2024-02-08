@@ -15,7 +15,99 @@
 ![11](https://github.com/GyungKu/topster2.0/assets/148296128/c73e1e5b-97d7-4c5d-8478-4fb2494bdbae)
 
 # 탑스터 등록 페이지
-![22](https://github.com/GyungKu/topster2.0/assets/148296128/a73bafcc-8dad-4fd9-b7e6-51fdd76c322록 했습니다.
+![22](https://github.com/GyungKu/topster2.0/assets/148296128/a73bafcc-8dad-4fd9-b7e6-51fdd76c322d)
+
+
+# 탑스터 조회 페이지
+![3](https://github.com/GyungKu/topster2.0/assets/148296128/6314dc5c-085e-42ae-bd61-402f1237af6f)
+
+# 게시글 조회 페이지
+![44](https://github.com/GyungKu/topster2.0/assets/148296128/6bd02e7f-d013-46bf-92e8-b65fcb410f8a)
+
+
+# 서비스 아키텍쳐
+
+---
+![아키텍처](https://github.com/GyungKu/topster2.0/assets/148296128/055ae083-d157-47a2-8a55-b6e40a4f61e0)
+
+
+
+# 기술스택
+
+---
+
+| 기술스택 | 활용 |
+| --- | --- |
+| 음악 검색 API | 스포티 파이 API, maniaDB API |
+| CI/CD | GitHub Action |
+| Docker | Back End Server, Front End Server, Nginx를 image로 관리 |
+| Data Caching | Redis로 외부 API 데이터 캐싱 |
+| OAuth2.0 | 카카오톡 소셜 로그인 |
+
+# 개발환경
+
+---
+
+- JAVA 17 : LTS, Springboot 3.2.1과 연동
+- Spring 3.2.1 : 스프링은 버전 업데이트가 자주 됨. Spring의 3.2부터 자바의 17 호환이 됨
+- Swagger : 로컬 환경에서 API 테스트
+- JMeter : 로컬 환경 서버 부하 테스트
+
+# ERD
+
+---
+![topster 2 0 (1)](https://github.com/GyungKu/topster2.0/assets/148296128/7510869f-7756-4e50-822e-eddfa1487f86)
+
+# API명세서
+
+---
+
+# 서비스 플로우
+
+---
+![서비스 플로우 drawio](https://github.com/GyungKu/topster2.0/assets/148296128/7e357fe2-3819-4ec1-8158-0fc16718b00f)
+
+
+# 기술적 의사결정
+
+---
+
+<details>
+<summary>Redis</summary>
+<div markdown="1">
+  <details>
+  <summary>음악 검색 API Data Caching</summary>
+  <div markdown="1">
+  ### **향상된 응답 속도**
+
+  - **Data Caching 전**
+    ![캐싱 전 (1)](https://github.com/GyungKu/topster2.0/assets/148296128/295b7e57-8c2d-461e-b2fd-bd0f93371293)
+  데이터 불러오는데 걸린 시간 1405ms
+
+  - **Data Caching 후**
+  - ![캐싱 후 (1)](https://github.com/GyungKu/topster2.0/assets/148296128/c71f9c2b-0bd8-4c9f-af6b-cbbeee85afe7)
+  데이터를 불러오는데 걸린 시간 18ms
+
+  외부 API 요청 시 요금이 부과되는 API가 있습니다.
+
+  Data Caching을 통해 외부 API 요청 횟수를 줄일 수 있습니다.
+
+</div>
+</details>
+  <details>
+  <summary>Refresh Token</summary>
+<div markdown="1">
+# 보안 강화
+
+토큰 기반 인증 방식의 약점인 토큰이 탈취 당했을 때를 대비하기 위해 Refresh Token 채택했습니다.
+
+서버는 토큰이 탈취 당했을 때 만료기한이 만료 되기 전까지 통제권이 없습니다.
+
+이를 보안하기 위해 Access Token과, Refresh Token을 도입했습니다.
+
+- **In Memory DB인 특성상 읽고 쓰기가 빈번한 데이터를 다루기에 좋음**
+    1. Access Token의 만료기한을 한시간으로 줄였습니다. 
+    2. 잦은 로그인은 사용자 경험에 좋지 않아 리프래쉬 토큰의 만료 기한을 일주일로 주어 일주일에 한번만 로그인 해도 인증처리가 되도 했습니다.
     3. 데이터 수정이 일어나지 않기 때문에 NoSql인 Redis에 적합합니다.
 - **TTL을 레디스에서 설정할 수 있음**
     1. Refresh Token은 만료기한이 7일.
