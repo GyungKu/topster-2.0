@@ -23,17 +23,24 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+@TestMethodOrder(OrderAnnotation.class)
 public class UserServiceTest {
+
+    private static final Logger log = LoggerFactory.getLogger(UserServiceTest.class);
 
     @InjectMocks
     UserServiceImpl userService;
@@ -127,9 +134,11 @@ public class UserServiceTest {
         if (mockUser.getPassword().equals(password)) {
             assertThatCode(() -> userService.loginUser(loginReq, response))
                 .doesNotThrowAnyException();
+            log.info("login success");
         } else {
             assertThatCode(() -> userService.loginUser(loginReq, response))
                 .hasMessage("비밀번호가 일치하지 않습니다.");
+            log.error("password Error");
         }
     }
 
@@ -141,19 +150,17 @@ public class UserServiceTest {
         UpdateReq updateReq = new UpdateReq("newNickname", "newIntro");
 
         User user = User.builder()
-            .username("username")
-            .password("password")
             .nickname("oldNickname")
             .intro("oldIntro")
             .build();
 
         //when
         when(userRepository.findById(user.getId())).thenReturn(user);
-
+        log.info("existing Nickname [{}]",user.getNickname());
         //then;
         assertThatCode(() -> userService.updateUser(user, updateReq))
             .doesNotThrowAnyException();
-        System.out.println(user.getNickname());
+        log.info("update Nickname [{}]",user.getNickname());
     }
 
     @ParameterizedTest
@@ -214,7 +221,7 @@ public class UserServiceTest {
         }
     }
 
-    @ValueSource(strings = {"123","123123"})
+    @ValueSource(strings = {"123", "123123"})
     @ParameterizedTest
     @Order(6)
     @DisplayName("비밀번호 변경")
@@ -228,14 +235,15 @@ public class UserServiceTest {
             .password(passwordEncoder.encode(password))
             .build();
 
-        ReflectionTestUtils.setField(user,"id",1L);
+        ReflectionTestUtils.setField(user, "id", 1L);
         when(redisUtil.getData(email)).thenReturn("123");
         when(userRepository.findById(user.getId())).thenReturn(user);
 
-        if(certificationCode.equals("123")){
-            assertThatCode(() -> userService.modifyPassword(user,modifyReq)).doesNotThrowAnyException();
-        }else{
-            assertThatCode(() -> userService.modifyPassword(user,modifyReq))
+        if (certificationCode.equals("123")) {
+            assertThatCode(
+                () -> userService.modifyPassword(user, modifyReq)).doesNotThrowAnyException();
+        } else {
+            assertThatCode(() -> userService.modifyPassword(user, modifyReq))
                 .isInstanceOf(ServiceException.class)
                 .hasMessage("인증번호 오류");
         }

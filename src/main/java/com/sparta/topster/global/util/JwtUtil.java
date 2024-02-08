@@ -29,7 +29,7 @@ public class JwtUtil {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
-    public final long REFRESH_TOKEN_EXPIRATION = 7 * 24 * 60 * 60 * 1000L; //7일
+    public final long REFRESH_TOKEN_EXPIRATION = 60 * 60 * 24 * 7; //7일
 
     public final long TOKEN_TIME = 60 * 60 * 1000L; // 60분
 
@@ -78,7 +78,7 @@ public class JwtUtil {
                 .signWith(key, signatureAlgorithm)
                 .compact();
 
-        redisTemplate.opsForValue().set(refreshToken,username, Duration.ofMillis(REFRESH_TOKEN_EXPIRATION));
+        redisTemplate.opsForValue().set(refreshToken,username, Duration.ofSeconds(REFRESH_TOKEN_EXPIRATION));
         return refreshToken;
     }
 
